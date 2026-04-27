@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 import traceback
 from models import Invoice
@@ -26,6 +27,13 @@ app = FastAPI(
     title="CleanCore Validation API",
     description="Pre-posting invoice validation API for SAP-led landscapes.",
     version="1.0.0"
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 init_db()
