@@ -28,8 +28,8 @@ def create_checkout_session(api_key: str, plan: str, amount: int, currency: str)
             "api_key": api_key,
             "plan": plan
         },
-        success_url="http://localhost:8000/payment-success",
-        cancel_url="http://localhost:8000/payment-cancelled"
+        success_url="http://clean-core-validation-api-production.up.railway.app/payment-success",
+        cancel_url="http://clean-core-validation-api-production.up.railway.app/payment-cancelled"
     )
 
     return session.url
