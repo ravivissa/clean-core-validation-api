@@ -4,11 +4,11 @@ import stripe
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
-if not stripe.api_key:
-    raise RuntimeError("STRIPE_SECRET_KEY environment variable is not set.")
-
 
 def create_checkout_session(api_key: str, plan: str, amount: int, currency: str):
+    if not stripe.api_key:
+        raise RuntimeError("STRIPE_SECRET_KEY environment variable is not set.")
+
     session = stripe.checkout.Session.create(
         payment_method_types=["card"],
         mode="payment",
