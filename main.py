@@ -99,14 +99,29 @@ def checkout(request: CheckoutRequest):
 
     if not plan_details:
         raise HTTPException(status_code=400, detail="Invalid plan")
-    
-        plan_order = {
+
+    if plan_details["price"] <= 0:
+        raise HTTPException(status_code=400, detail="Cannot create checkout for free plan")
+
+    plan_order = {
         "FREE": 1,
         "PRO": 2,
         "ENTERPRISE": 3
     }
 
     current_plan = existing_client["plan"].upper()
+
+    if current_plan not in plan_order:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Current client plan is invalid: {current_plan}"
+        )
+
+    if plan_name not in plan_order:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Requested plan is invalid: {plan_name}"
+        )
 
     if current_plan == plan_name:
         raise HTTPException(
@@ -120,9 +135,6 @@ def checkout(request: CheckoutRequest):
             detail="Checkout is allowed only for upgrades"
         )
 
-    if plan_details["price"] <= 0:
-        raise HTTPException(status_code=400, detail="Cannot create checkout for free plan")
-
     checkout_url = create_checkout_session(
         api_key=request.api_key,
         plan=plan_name,
@@ -131,9 +143,10 @@ def checkout(request: CheckoutRequest):
     )
 
     return {
-        "checkout_url": checkout_url
+        "checkout_url": checkout_url,
+        "current_plan": current_plan,
+        "upgrade_to": plan_name
     }
-
 
 @app.post("/stripe-webhook")
 async def stripe_webhook(request: Request):
