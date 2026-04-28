@@ -99,6 +99,26 @@ def checkout(request: CheckoutRequest):
 
     if not plan_details:
         raise HTTPException(status_code=400, detail="Invalid plan")
+    
+        plan_order = {
+        "FREE": 1,
+        "PRO": 2,
+        "ENTERPRISE": 3
+    }
+
+    current_plan = existing_client["plan"].upper()
+
+    if current_plan == plan_name:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Client is already on {plan_name} plan"
+        )
+
+    if plan_order[plan_name] <= plan_order[current_plan]:
+        raise HTTPException(
+            status_code=400,
+            detail="Checkout is allowed only for upgrades"
+        )
 
     if plan_details["price"] <= 0:
         raise HTTPException(status_code=400, detail="Cannot create checkout for free plan")
