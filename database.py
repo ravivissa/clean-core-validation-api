@@ -272,6 +272,12 @@ def get_all_clients():
 
 
 def create_client(client_name: str, plan: str, max_usage: int):
+    client_name = client_name.strip().lower()
+
+    existing_client = get_client_by_name(client_name)
+    if existing_client:
+        return existing_client
+
     api_key = secrets.token_urlsafe(24)
 
     conn = sqlite3.connect(DB_FILE)
@@ -293,6 +299,32 @@ def create_client(client_name: str, plan: str, max_usage: int):
         "is_paid": 0
     }
 
+def get_client_by_name(client_name: str):
+    normalized_name = client_name.strip().lower()
+
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT api_key, client_name, plan, max_usage, is_paid
+        FROM clients
+        WHERE LOWER(TRIM(client_name)) = ?
+        LIMIT 1
+    """, (normalized_name,))
+
+    row = cursor.fetchone()
+    conn.close()
+
+    if row:
+        return {
+            "api_key": row[0],
+            "client_name": row[1],
+            "plan": row[2],
+            "max_usage": row[3],
+            "is_paid": row[4]
+        }
+
+    return None
 
 def update_client_plan(api_key: str, plan: str, max_usage: int, is_paid: int):
     conn = sqlite3.connect(DB_FILE)

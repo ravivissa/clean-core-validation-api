@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CleanCore Invoice Validator</title>
+    <style>
+        body { font-family: "Segoe UI", Arial; margin: 0; background: #f4f6fb; color: #111827; }
+        .hero { background: linear-gradient(135deg, #1e3a8a, #2563eb); color: white; padding: 55px 30px; text-align: center; }
+        .container { max-width: 1050px; margin: 30px auto; padding: 25px; }
+        .card { background: white; border-radius: 16px; padding: 25px; margin-bottom: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+        .price-card { border: 1px solid #e5e7eb; border-radius: 14px; padding: 20px; background: #f9fafb; }
+        textarea, input { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: 1px solid #d1d5db; box-sizing: border-box; }
+        textarea { height: 230px; font-family: Consolas, monospace; }
+        button { padding: 12px 20px; border: none; border-radius: 8px; margin-top: 14px; cursor: pointer; font-weight: 600; }
+        .primary { background: #2563eb; color: white; }
+        .success { background: #10b981; color: white; }
+        .dark { background: #374151; color: white; }
+        .result-box { background: #111827; color: #e5e7eb; border-radius: 10px; padding: 18px; white-space: pre-wrap; overflow-x: auto; }
+        .badge { display: inline-block; padding: 8px 14px; border-radius: 999px; font-weight: bold; margin-bottom: 10px; }
+        .PASS { background: #dcfce7; color: #166534; }
+        .FAIL { background: #fee2e2; color: #991b1b; }
+        .REVIEW { background: #fef3c7; color: #92400e; }
+        .note { color: #6b7280; font-size: 14px; }
+        ul { line-height: 1.8; }
+    </style>
+</head>
+
+<body>
+
+<div class="hero">
+    <h1>Prevent Invoice Errors Before They Hit SAP</h1>
+    <p>Validate invoices before posting — catch duplicates, PO mismatches, supplier issues, and price variances.</p>
+</div>
+
+<div class="container">
+
+    <div class="card">
+        <h2>Sign in & Start Free</h2>
+        <p class="note">Sign in with Google to generate your free API key.</p>
+
+        <button class="primary" onclick="googleLogin()">Sign in with Google</button>
+        <button class="dark" onclick="logout()">Logout</button>
+
+        <p><b>Logged in as:</b></p>
+        <input id="userEmail" placeholder="Not logged in" readonly>
+
+        <p><b>Your API Key:</b></p>
+        <input id="apiKey" placeholder="API key will appear here" readonly>
+    </div>
+
+    <div class="card">
+        <h2>Why CleanCore?</h2>
+        <ul>
+            <li>Detect duplicate invoices before SAP posting</li>
+            <li>Catch PO price and quantity mismatches</li>
+            <li>Validate supplier status and PO alignment</li>
+            <li>Reduce AP rework and invoice rejection cycles</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>Pricing</h2>
+        <div class="grid">
+            <div class="price-card">
+                <h3>FREE</h3>
+                <p><b>₹0</b></p>
+                <p>5 validations</p>
+            </div>
+            <div class="price-card">
+                <h3>PRO</h3>
+                <p><b>₹2000 / month</b></p>
+                <p>100 validations</p>
+            </div>
+            <div class="price-card">
+                <h3>ENTERPRISE</h3>
+                <p><b>₹10,000 / month</b></p>
+                <p>1000 validations + custom integration</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Validate Invoice</h2>
+
+        <h3>Upload CSV</h3>
+        <input type="file" id="csvFile" accept=".csv">
+        <button class="dark" onclick="loadCsv()">Convert CSV to JSON</button>
+
+        <h3>Invoice JSON</h3>
+        <textarea id="invoiceInput">
+{
+  "invoice_number": "INV-9001",
+  "supplier_id": "SUP-100",
+  "po_number": "PO-1001",
+  "header_amount": 200,
+  "items": [
+    {
+      "line_no": 1,
+      "po_line": 10,
+      "quantity": 2,
+      "unit_price": 100,
+      "line_amount": 200
+    }
+  ]
+}
+        </textarea>
+
+        <button class="primary" onclick="validateInvoice()">Validate Invoice</button>
+        <button class="success" onclick="upgradeToPro()">Upgrade to PRO</button>
+    </div>
+
+    <div class="card">
+        <h2>Result</h2>
+        <div id="result" class="result-box">Result will appear here...</div>
+    </div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const BASE_URL = "https://clean-core-validation-api-production.up.railway.app";
+
+/* Paste your Firebase config here */
+
+
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyAd6sRfT0QoUusCcS30aPzzVZggC4pwNbU",
+  authDomain: "cleancore-validator.firebaseapp.com",
+  projectId: "cleancore-validator",
+  storageBucket: "cleancore-validator.firebasestorage.app",
+  messagingSenderId: "734432127931",
+  appId: "1:734432127931:web:94348407c35f798367329e",
+  measurementId: "G-3ZRDCY233M"
+  
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+
+window.googleLogin = async function () {
+    try {
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+
+        document.getElementById("userEmail").value = user.email;
+
+        const response = await fetch(`${BASE_URL}/create-client`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                client_name: user.email,
+                plan: "FREE"
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            document.getElementById("result").textContent = JSON.stringify(data, null, 2);
+            return;
+        }
+
+        document.getElementById("apiKey").value = data.client.api_key;
+
+        document.getElementById("result").textContent =
+            "Login successful. Free API key generated.\n\n" + JSON.stringify(data, null, 2);
+
+    } catch (error) {
+        document.getElementById("result").textContent = "LOGIN ERROR: " + error.message;
+    }
+};
+
+window.logout = async function () {
+    await signOut(auth);
+    document.getElementById("userEmail").value = "";
+    document.getElementById("apiKey").value = "";
+    document.getElementById("result").textContent = "Logged out.";
+};
+
+window.loadCsv = function () {
+    const file = document.getElementById("csvFile").files[0];
+
+    if (!file) {
+        document.getElementById("result").textContent = "Please select a CSV file first.";
+        return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = function(event) {
+        try {
+            const text = event.target.result.trim();
+            const lines = text.split(/\r?\n/);
+            const headers = lines[0].split(",").map(h => h.trim());
+
+            const rows = lines.slice(1).map(line => {
+                const values = line.split(",").map(v => v.trim());
+                const row = {};
+                headers.forEach((header, index) => row[header] = values[index]);
+                return row;
+            });
+
+            const first = rows[0];
+
+            const invoice = {
+                invoice_number: first.invoice_number,
+                supplier_id: first.supplier_id,
+                po_number: first.po_number,
+                header_amount: Number(first.header_amount),
+                items: rows.map(row => ({
+                    line_no: Number(row.line_no),
+                    po_line: Number(row.po_line),
+                    quantity: Number(row.quantity),
+                    unit_price: Number(row.unit_price),
+                    line_amount: Number(row.line_amount)
+                }))
+            };
+
+            document.getElementById("invoiceInput").value = JSON.stringify(invoice, null, 2);
+            document.getElementById("result").textContent = "CSV converted successfully.";
+
+        } catch (error) {
+            document.getElementById("result").textContent = "CSV ERROR: " + error.message;
+        }
+    };
+
+    reader.readAsText(file);
+};
+
+window.validateInvoice = async function () {
+    try {
+        const apiKey = document.getElementById("apiKey").value.trim();
+        const invoice = JSON.parse(document.getElementById("invoiceInput").value);
+
+        const response = await fetch(`${BASE_URL}/validate-invoice`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-api-key": apiKey
+            },
+            body: JSON.stringify(invoice)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            document.getElementById("result").textContent = JSON.stringify(data, null, 2);
+            return;
+        }
+
+        document.getElementById("result").innerHTML = `
+<span class="badge ${data.status}">${data.status}</span>
+
+Score: ${data.score}
+
+${data.summary}
+
+Errors:
+${JSON.stringify(data.errors, null, 2)}
+
+Warnings:
+${JSON.stringify(data.warnings, null, 2)}
+        `;
+
+    } catch (error) {
+        document.getElementById("result").textContent = "ERROR: " + error.message;
+    }
+};
+
+window.upgradeToPro = async function () {
+    try {
+        const apiKey = document.getElementById("apiKey").value.trim();
+
+        if (!apiKey) {
+            document.getElementById("result").textContent = "Please sign in first.";
+            return;
+        }
+
+        const response = await fetch(`${BASE_URL}/create-checkout-session`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                api_key: apiKey,
+                plan: "PRO"
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.checkout_url) {
+            window.location.href = data.checkout_url;
+        } else {
+            document.getElementById("result").textContent = JSON.stringify(data, null, 2);
+        }
+
+    } catch (error) {
+        document.getElementById("result").textContent = "ERROR: " + error.message;
+    }
+};
+</script>
+
+</body>
+</html>

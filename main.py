@@ -16,6 +16,7 @@ from validator import run_invoice_validation
 from usage import increment_usage, get_usage, is_limit_exceeded, reset_usage
 from clients import (
     get_client_details,
+    get_client_details_by_name,
     list_clients,
     create_new_client,
     upgrade_client_plan
@@ -246,6 +247,19 @@ def create_client_api(request: CreateClientRequest):
     if not plan_details:
         raise HTTPException(status_code=400, detail="Invalid plan")
 
+    existing_client = get_client_details_by_name(request.client_name)
+
+    if existing_client:
+        return {
+            "message": "Client already exists",
+            "client": existing_client,
+            "pricing": {
+                "price": plan_details["price"],
+                "currency": plan_details["currency"],
+                "description": plan_details["description"]
+            }
+        }
+
     client = create_new_client(
         client_name=request.client_name,
         plan=plan_name,
@@ -261,7 +275,6 @@ def create_client_api(request: CreateClientRequest):
             "description": plan_details["description"]
         }
     }
-
 
 @app.post("/upgrade-plan")
 def upgrade_plan_api(request: UpgradePlanRequest):
